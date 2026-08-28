@@ -15,6 +15,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import tools.jackson.databind.ObjectMapper;
 import com.yourcaryourway.chatpoc.model.ChatMessage;
+import com.yourcaryourway.chatpoc.validation.ChatMessageValidator;
 
 @Component
 public class ChatWebSocketHandler extends TextWebSocketHandler {
@@ -24,8 +25,14 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper;
 
-    public ChatWebSocketHandler(ObjectMapper objectMapper) {
+    private final ChatMessageValidator messageValidator;
+
+    public ChatWebSocketHandler(
+        ObjectMapper objectMapper,
+        ChatMessageValidator messageValidator) {
+
         this.objectMapper = objectMapper;
+        this.messageValidator = messageValidator;
     }
 
     @Override
@@ -50,6 +57,10 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 objectMapper.readValue(
                         message.getPayload(),
                         ChatMessage.class);
+
+        if (!messageValidator.isValid(chatMessage)) {
+            return;
+        }
 
         chatMessage.setConversationId(conversationId);
         chatMessage.setTimestamp(Instant.now());
