@@ -1,6 +1,7 @@
 package com.yourcaryourway.chatpoc.handler;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,11 +13,20 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import tools.jackson.databind.ObjectMapper;
+import com.yourcaryourway.chatpoc.model.ChatMessage;
+
 @Component
 public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private final Map<String, Set<WebSocketSession>> conversations =
             new ConcurrentHashMap<>();
+
+    private final ObjectMapper objectMapper;
+
+    public ChatWebSocketHandler(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -36,6 +46,17 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         String conversationId = getConversationId(session);
 
+        ChatMessage chatMessage =
+                objectMapper.readValue(
+                        message.getPayload(),
+                        ChatMessage.class);
+
+        chatMessage.setConversationId(conversationId);
+        chatMessage.setTimestamp(Instant.now());
+
+        String payload =
+                objectMapper.writeValueAsString(chatMessage);
+
         Set<WebSocketSession> sessions =
                 conversations.get(conversationId);
 
@@ -45,7 +66,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         for (WebSocketSession connectedSession : sessions) {
             if (connectedSession.isOpen()) {
-                connectedSession.sendMessage(message);
+                connectedSession.sendMessage(
+                        new TextMessage(payload));
             }
         }
     }
